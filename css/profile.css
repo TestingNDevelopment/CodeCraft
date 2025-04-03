@@ -1,0 +1,326 @@
+.profile-modal .modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.profile-container {
+    padding: var(--space-lg);
+}
+
+.profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+}
+
+.avatar-section {
+    position: relative;
+}
+
+.avatar {
+    width: 100px;
+    height: 100px;
+    background: var(--primary);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2.5em;
+}
+
+.edit-avatar-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.edit-avatar-btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: scale(1.1);
+}
+
+.user-info {
+    flex: 1;
+}
+
+.info-group {
+    margin-bottom: var(--space-md);
+}
+
+.info-group label {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    margin-bottom: var(--space-xs);
+    display: block;
+}
+
+.editable-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.editable-field span {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.edit-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.edit-btn:hover {
+    color: var(--primary);
+    transform: scale(1.1);
+}
+
+.email-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.verification-badge {
+    font-size: var(--font-sm);
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.verification-badge.unverified {
+    color: var(--danger);
+}
+
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+}
+
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.stat-card i {
+    font-size: 1.5em;
+    color: var(--primary);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-value {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+}
+
+.profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.verify-email-btn {
+    width: 100%;
+    padding: var(--space-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    transition: all var(--transition-fast);
+}
+
+.verify-email-btn:hover {
+    background: var(--surface-hover);
+    transform: translateY(-1px);
+}
+
+.verify-email-btn.hidden {
+    display: none;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .profile-modal .modal-content {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+        max-height: 90vh;
+        width: 90%;
+        max-width: 400px;
+        border-radius: var(--radius-lg);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .profile-container {
+        flex: 1;
+        overflow-y: auto;
+        max-height: calc(90vh - 60px); /* Account for header */
+        padding: var(--space-lg);
+    }
+
+    .profile-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--space-lg);
+        margin-bottom: var(--space-lg);
+    }
+
+    .user-info {
+        width: 100%;
+    }
+
+    .info-group {
+        text-align: center;
+    }
+
+    .editable-field {
+        justify-content: center;
+    }
+
+    .email-field {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+    }
+
+    .profile-stats {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+        margin: var(--space-xl) 0;
+    }
+
+    .stat-card {
+        padding: var(--space-lg);
+        min-height: 80px;
+    }
+
+    .profile-actions {
+        padding: 0;
+        margin-top: var(--space-xl);
+        gap: var(--space-md);
+    }
+
+    .verify-email-btn,
+    .danger-btn {
+        min-height: 48px;
+        padding: var(--space-md);
+    }
+
+    /* Enhanced scrollbar for mobile */
+    .profile-container::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .profile-container::-webkit-scrollbar-track {
+        margin: var(--space-sm) 0;
+    }
+
+    .profile-container::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: var(--radius-full);
+    }
+
+    /* Fix modal animation */
+    .profile-modal.active .modal-content {
+        animation: profileModalIn var(--transition-normal) forwards;
+    }
+}
+
+/* Enhanced animations */
+@keyframes profileModalIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Tablet Optimization */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .profile-modal .modal-content {
+        max-width: 500px;
+        width: 90%;
+        margin: auto;
+    }
+
+    .profile-header {
+        gap: var(--space-lg);
+    }
+
+    .profile-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Desktop and larger screens */
+@media (min-width: 1025px) {
+    .profile-modal .modal-content {
+        max-width: 500px;
+        width: 90%;
+        margin: auto;
+        transform: scale(0.98);
+        opacity: 0;
+        transition: transform var(--transition-normal),
+                    opacity var(--transition-normal);
+    }
+
+    .profile-modal.active .modal-content {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Remove the separate scaleIn animation as it's now handled in style.css */
