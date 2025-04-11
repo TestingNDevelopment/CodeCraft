@@ -4,6 +4,7 @@ class ModelShowcase {
             deepseek: {
                 title: "Create Something Amazing",
                 description: "👾",
+                modelDescription: "Specialized in creating polished web applications with modern UI/UX, animations, and robust functionality. Choose any from the below and see the preview.",
                 examples: [
                     {
                         icon: 'fas fa-globe',
@@ -130,12 +131,45 @@ Style Requirements:
 - Smooth page load animations
 
 Deliver as single HTML file. Focus on premium feel and smooth interactions.`
+                    },
+                    {
+                        icon: 'fas fa-gamepad',
+                        title: 'Arcade Game',
+                        description: 'Interactive retro-style game',
+                        prompt: `Create a modern arcade game with:
+
+Key Features:
+- HTML5 Canvas-based retro game
+- Player movement & collision system
+- Enemy AI with dynamic patterns
+- Score & health tracking
+- Touch & keyboard controls
+- Power-ups & particle effects
+- High score system
+- Game over & restart flow
+
+Visuals:
+- Neon retro pixel art style
+- Smooth particle animations
+- Parallax background layers
+- Modern minimal UI/HUD
+- Mobile responsive design
+
+Technical:
+- Pure HTML/CSS/JS only
+- Optimized game loop
+- Local storage for scores
+- Touch event handling
+- Optimized for performance
+
+Focus on polished gameplay and smooth controls.`
                     }
                 ]
             },
             gemma: {
                 title: "Personal Growth & Insights",
-                description: "Your companion for self-discovery and transformation",
+                description: "Your companion for self-discovery",
+                modelDescription: "An empathetic guide for personal development, helping you explore self-awareness, transform limiting beliefs, and discover your authentic path.",
                 examples: [
                     {
                         icon: 'fas fa-mask',
@@ -154,6 +188,39 @@ Deliver as single HTML file. Focus on premium feel and smooth interactions.`
                         title: 'Life Purpose Clarity',
                         description: 'Find clarity in your life direction and authentic path.',
                         prompt: 'I feel disconnected from my true purpose. Help me explore my values, passions, and fears through reflective questions. Guide me to understand what truly matters to me and how to align my life with my authentic self.'
+                    },
+                    {
+                        icon: 'fas fa-moon',
+                        title: 'Sleep Cycle Reset',
+                        description: 'Fix your sleep schedule naturally',
+                        prompt: `Create a sleep optimization plan:
+
+1. Sleep Analysis:
+- Circadian rhythm overview
+- Common disruption factors
+- Health impact assessment
+
+2. Reset Strategy:
+- Light exposure timing
+- Temperature optimization
+- Exercise scheduling
+- Nutrition guidelines
+- Stress management
+
+3. Implementation:
+- Daily schedule template
+- Environment setup
+- Routine building steps
+- Progress tracking
+- Success metrics
+
+4. Maintenance:
+- Long-term habit formation
+- Travel adaptation tips
+- Social life balance
+- Emergency backup plans
+
+Provide actionable, science-based solutions.`
                     }
                 ]
             }
@@ -173,6 +240,9 @@ Deliver as single HTML file. Focus on premium feel and smooth interactions.`
         const showcase = document.createElement('div');
         showcase.className = 'model-showcase';
         showcase.innerHTML = `
+            <div class="model-showcase-header">
+                <p class="model-type-description">${this.modelExamples[model].modelDescription}</p>
+            </div>
             <div class="model-showcase-grid">
                 ${modelData.examples.map(example => `
                     <div class="showcase-card" data-prompt="${example.prompt}">
