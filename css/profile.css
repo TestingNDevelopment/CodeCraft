@@ -21,13 +21,25 @@
 .avatar {
     width: 100px;
     height: 100px;
-    background: var(--primary);
+    background: linear-gradient(
+        135deg,
+        var(--primary) 0%,
+        var(--accent-1) 100%
+    );
+    box-shadow: 
+        0 12px 24px -4px rgba(99, 102, 241, 0.4),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-size: 2.5em;
+    transition: transform 0.3s var(--transition-bounce);
+}
+
+.avatar:hover {
+    transform: scale(1.05);
 }
 
 .edit-avatar-btn {
@@ -122,13 +134,26 @@
 }
 
 .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+        0 16px 32px rgba(0, 0, 0, 0.15),
+        inset 0 1px 1px rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-lg);
     padding: var(--space-lg);
     display: flex;
     align-items: center;
     gap: var(--space-md);
+    transition: transform 0.3s var(--transition-bounce);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
 }
 
 .stat-card i {
