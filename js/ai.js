@@ -2,6 +2,7 @@ class AIModelManager {
     constructor() {
         this.API_KEY = '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';
         this.API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+        this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
             deepseek: {
                 id: 'deepseek/deepseek-chat-v3-0324:free',
@@ -12,7 +13,12 @@ class AIModelManager {
                 presence_penalty: 0.1,
                 icon: 'fas fa-code',
                 name: 'DeepSeek',
-                description: 'Advanced coding & technical tasks'
+                description: 'Advanced coding & technical tasks',
+                getPrompt: (mode) => `${this.getDeepseekContext()}
+Response Mode: ${mode === 'short' ? 'Provide concise responses focusing on key points only.' : 
+                mode === 'medium' ? 'Provide balanced responses with essential details and examples.' :
+                'Provide comprehensive responses with detailed explanations and multiple examples.'}
+Note: Always provide complete code regardless of response mode.`
             },
             gemma: {
                 id: 'google/gemma-3-27b-it:free',
@@ -23,7 +29,11 @@ class AIModelManager {
                 presence_penalty: 0.2,
                 icon: 'fab fa-google',
                 name: 'Gemma',
-                description: 'General knowledge & analysis'
+                description: 'General knowledge & analysis',
+                getPrompt: (mode) => `${this.getGemmaContext()}
+Response Mode: ${mode === 'short' ? 'Focus on key actionable points only.' :
+                mode === 'medium' ? 'Provide balanced explanations with examples.' :
+                'Give detailed explanations with multiple examples and alternatives.'}`
             }
         };
     }
@@ -36,6 +46,12 @@ class AIModelManager {
         const model = this.getModel(modelId);
         if (!model) throw new Error('Invalid model ID');
 
+        const systemMessage = model.getPrompt(this.responseMode);
+        const updatedMessages = [
+            { role: 'system', content: systemMessage },
+            ...messages.slice(1)  // Skip original system message
+        ];
+
         const response = await fetch(this.API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -45,7 +61,7 @@ class AIModelManager {
             },
             body: JSON.stringify({
                 model: model.id,
-                messages: messages,
+                messages: updatedMessages,
                 temperature: model.temperature,
                 top_p: model.top_p,
                 max_tokens: 32768,
@@ -60,6 +76,11 @@ class AIModelManager {
         });
 
         return response;
+    }
+
+    setResponseMode(mode) {
+        this.responseMode = mode;
+        localStorage.setItem('responseMode', mode);
     }
 
     getModelSelector() {
