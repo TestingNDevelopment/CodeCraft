@@ -12,6 +12,12 @@ class ChatInterface {
         this.settings = this.loadSettings();
         this.initializeElements();
         this.initializeEventListeners();
+        this.initializeResponseMode();
+        this.initializeModalHandlers();
+        
+        // Load saved theme from localStorage or use default
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        this.handleThemeChange(savedTheme);
         
         // Initialize Firebase auth state
         firebaseManager.addAuthStateListener(user => this.handleAuthStateChange(user));
@@ -38,6 +44,26 @@ class ChatInterface {
         
         // Verify all required elements exist
         this.verifyElements();
+    }
+
+    initializeResponseMode() {
+        const select = document.getElementById('responseModeSelect');
+        if (select) {
+            // Load saved mode or use default
+            const savedMode = localStorage.getItem('responseMode') || 'medium';
+            select.value = savedMode;
+            
+            // Initialize AI manager with saved mode
+            aiManager.setResponseMode(savedMode);
+            
+            // Add change listener
+            select.addEventListener('change', (e) => this.handleResponseModeChange(e.target.value));
+        }
+    }
+
+    handleResponseModeChange(mode) {
+        aiManager.setResponseMode(mode);
+        localStorage.setItem('responseMode', mode);
     }
 
     verifyElements() {
@@ -86,6 +112,9 @@ class ChatInterface {
             loadingSpinner: document.querySelector('.loading-spinner')
         };
         
+        // Add body element reference
+        this.elements.body = document.body;
+
         // Main content wrapper for adjusting when sidebar opens/closes
         this.mainContent = document.querySelector('.main-content');
 
@@ -229,6 +258,98 @@ class ChatInterface {
                 });
             }
         });
+
+        // Add touch event handling for chat items
+        this.elements.chatList.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
+        this.elements.chatList.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    }
+
+    handleTouchStart(e) {
+        const chatItem = e.target.closest('.chat-item');
+        if (!chatItem) return;
+
+        const chat = this.chats[chatItem.dataset.chatId];
+        if (!chat) return;
+
+        this.touchTimer = setTimeout(() => {
+            this.showChatOptions(chat, chatItem);
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }, 500);
+
+        this.touchStartTime = Date.now();
+        this.touchStartY = e.touches[0].clientY;
+    }
+
+    handleTouchEnd(e) {
+        clearTimeout(this.touchTimer);
+        
+        const chatItem = e.target.closest('.chat-item');
+        if (!chatItem) return;
+
+        // Calculate touch duration and movement
+        const touchDuration = Date.now() - this.touchStartTime;
+        const touchMoveY = Math.abs(e.changedTouches[0].clientY - this.touchStartY);
+
+        // If it was a short tap and minimal movement, treat as normal click
+        if (touchDuration < 500 && touchMoveY < 10) {
+            this.loadChat(chatItem.dataset.id);
+        }
+    }
+
+    initializeModalHandlers() {
+        // Handle clicks outside modals
+        document.addEventListener('click', (e) => {
+            const modals = {
+                settings: {
+                    modal: this.elements.settingsModal,
+                    content: this.elements.settingsModal?.querySelector('.modal-content'),
+                    isActive: () => this.elements.settingsModal?.classList.contains('active')
+                },
+                auth: {
+                    modal: this.elements.authModal,
+                    content: this.elements.authModal?.querySelector('.modal-content'),
+                    isActive: () => this.elements.authModal?.classList.contains('active')
+                },
+                profile: {
+                    modal: this.elements.profileModal,
+                    content: this.elements.profileModal?.querySelector('.modal-content'),
+                    isActive: () => this.elements.profileModal?.classList.contains('active')
+                },
+                codeEditor: {
+                    modal: document.querySelector('.code-editor-modal'),
+                    content: document.querySelector('.code-editor-modal .modal-content'),
+                    isActive: () => document.querySelector('.code-editor-modal.active')
+                }
+            };
+
+            // Check each modal
+            Object.entries(modals).forEach(([key, modal]) => {
+                if (modal.isActive() && 
+                    modal.modal && 
+                    modal.content && 
+                    !modal.content.contains(e.target) && 
+                    e.target === modal.modal) {
+                    
+                    // Close the specific modal
+                    switch(key) {
+                        case 'settings':
+                            this.toggleSettingsModal(false);
+                            break;
+                        case 'auth':
+                            this.toggleAuthModal(false);
+                            break;
+                        case 'profile':
+                            this.toggleProfileModal(false);
+                            break;
+                        case 'codeEditor':
+                            modal.modal.remove();
+                            break;
+                    }
+                }
+            });
+        });
     }
 
     handleAuthStateChange(user) {
@@ -295,8 +416,9 @@ class ChatInterface {
         }
     }
 
-    toggleAuthModal(show = true) {
-        this.elements.authModal.classList.toggle('active', show);
+    toggleAuthModal(show) {
+        const newState = show ?? !this.elements.authModal.classList.contains('active');
+        this.elements.authModal.classList.toggle('active', newState);
         if (show) {
             document.getElementById('email').focus();
         }
@@ -456,7 +578,11 @@ class ChatInterface {
         
         messageDiv.appendChild(messageContent);
         this.elements.chatContainer.appendChild(messageDiv);
-        this.scrollToBottom();
+        
+        // Only scroll if user was already at bottom
+        if (this.isAtBottom()) {
+            this.scrollToBottom();
+        }
         
         // Add continue button if it's an AI message
         if (type === 'ai') {
@@ -516,154 +642,190 @@ class ChatInterface {
         // Create or use existing message element
         const messageDiv = existingMessageDiv || this.createMessageElement('ai', '');
         const messageContent = messageDiv.querySelector('.message-content');
-        const continueBtn = messageDiv.querySelector('.continue-btn');
         
         if (!existingMessageDiv) {
             messageContent.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
         }
+
+        let responseText = '';
+        let isError = false;
         
-        // Enhanced contexts with higher token limits
-        const enhancedContext = currentModel === 'deepseek' ? 
-            `${model.context}\nPrevious conversation context: ${this.chats[this.currentChatId].title}` :
-            `${model.context}\nPrevious conversation summary: ${this.chats[this.currentChatId].title}`;
-        
-        const messages = [
-            { role: 'system', content: enhancedContext },
-            ...chatHistory.map(msg => ({
-                role: msg.type === 'user' ? 'user' : 'assistant',
-                content: msg.content
-            }))
-        ];
+        try {
+            // Enhanced contexts with higher token limits
+            const enhancedContext = currentModel === 'deepseek' ? 
+                `${model.context}\nPrevious conversation context: ${this.chats[this.currentChatId].title}` :
+                `${model.context}\nPrevious conversation summary: ${this.chats[this.currentChatId].title}`;
+            
+            const messages = [
+                { role: 'system', content: enhancedContext },
+                ...chatHistory.map(msg => ({
+                    role: msg.type === 'user' ? 'user' : 'assistant',
+                    content: msg.content
+                }))
+            ];
 
-        if (lastResponse) {
-            messages.push({ role: 'assistant', content: lastResponse });
-            messages.push({ role: 'user', content: 'Please continue the previous response.' });
-        }
+            if (lastResponse) {
+                messages.push({ role: 'assistant', content: lastResponse });
+                messages.push({ role: 'user', content: 'Please continue the previous response.' });
+            }
 
-        // Add exponential backoff retry logic
-        const maxRetries = 3;
-        let retryCount = 0;
-        let delay = 1000;
+            // Add exponential backoff retry logic
+            const maxRetries = 3;
+            let retryCount = 0;
+            let delay = 1000;
 
-        while (retryCount < maxRetries) {
-            try {
-                this.abortController = new AbortController();
-                
-                const response = await aiManager.getCompletion(currentModel, messages, {
-                    signal: this.abortController.signal
-                });
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let responseText = '';
-                let buffer = '';
-                let firstChunk = true;
-
-                // Add handler for stream interruption
-                let streamInterrupted = false;
-                let responseTimeout;
-
-                const handleStreamTimeout = () => {
-                    if (!streamInterrupted && continueBtn) {
-                        streamInterrupted = true;
-                        continueBtn.classList.remove('hidden');
-                    }
-                };
-
+            while (retryCount < maxRetries) {
                 try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        
-                        if (done) {
-                            clearTimeout(responseTimeout);
-                            // Process any remaining buffer content
-                            if (buffer) {
-                                try {
-                                    const data = JSON.parse(buffer.slice(5));
-                                    if (data.choices[0].delta?.content) {
-                                        responseText += data.choices[0].delta.content;
-                                    }
-                                } catch (e) {
-                                    // Ignore parsing errors for incomplete chunks
-                                }
-                            }
-                            break;
-                        }
-
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop() || '';
-
-                        for (const line of lines) {
-                            if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
-
-                            if (line.startsWith('data: ')) {
-                                try {
-                                    const data = JSON.parse(line.slice(5));
-                                    if (data.choices[0].delta?.content) {
-                                        const content = data.choices[0].delta.content;
-                                        responseText += content;
-                                        
-                                        if (firstChunk) {
-                                            messageContent.innerHTML = '';
-                                            firstChunk = false;
-                                        }
-                                        
-                                        this.updateStreamingMessage(messageDiv, responseText);
-                                        
-                                        // Only auto-scroll if user was already at bottom
-                                        if (this.isAtBottom()) {
-                                            this.scrollToBottom();
-                                        }
-                                    }
-                                } catch (e) {
-                                    continue;
-                                }
-                            }
-                        }
-
-                        // Reset timeout on each chunk
-                        clearTimeout(responseTimeout);
-                        responseTimeout = setTimeout(handleStreamTimeout, 5000);
-                    }
-                } catch (streamError) {
-                    if (streamError.name === 'AbortError') {
-                        // Clean up the response on abort
-                        await reader.cancel();
-                        if (!responseText.trim()) {
-                            messageDiv.remove();
-                        }
-                        return;
-                    }
-                    throw streamError;
-                }
-
-                // Save the complete message if not interrupted
-                if (!streamInterrupted && responseText) {
-                    this.chats[this.currentChatId].messages.push({
-                        type: 'ai',
-                        content: responseText
+                    this.abortController = new AbortController();
+                    
+                    const response = await aiManager.getCompletion(currentModel, messages, {
+                        signal: this.abortController.signal
                     });
 
-                    // Update chat title if it's the first message
-                    if (this.chats[this.currentChatId].messages.length === 2) {
-                        this.updateChatTitle(responseText);
-                    }
-                }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let firstChunk = true;
 
-                return;
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    // Don't retry on manual cancellation
+                    // Add handler for stream interruption
+                    let streamInterrupted = false;
+                    let responseTimeout;
+
+                    const handleStreamTimeout = () => {
+                        if (!streamInterrupted) {
+                            streamInterrupted = true;
+                            const continueBtn = messageDiv.querySelector('.continue-btn');
+                            if (continueBtn) continueBtn.classList.remove('hidden');
+                        }
+                    };
+
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            
+                            if (done) {
+                                clearTimeout(responseTimeout);
+                                
+                                // Check if response ended prematurely (in code block)
+                                if (responseText.includes('```') && 
+                                    (responseText.match(/```/g).length % 2 !== 0 || 
+                                    responseText.match(/```[\s\S]*$/).includes('\n'))) {
+                                    
+                                    // Show continue button for incomplete code
+                                    const continueBtn = messageDiv.querySelector('.continue-btn');
+                                    if (continueBtn) continueBtn.classList.remove('hidden');
+                                }
+                                break;
+                            }
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+
+                            for (const line of lines) {
+                                if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
+
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(5));
+                                        if (data.choices[0].delta?.content) {
+                                            const content = data.choices[0].delta.content;
+                                            responseText += content;
+                                            
+                                            if (firstChunk) {
+                                                messageContent.innerHTML = '';
+                                                firstChunk = false;
+                                            }
+                                            
+                                            this.updateStreamingMessage(messageDiv, responseText);
+                                            
+                                            // Only auto-scroll if user was already at bottom
+                                            if (this.isAtBottom()) {
+                                                this.scrollToBottom();
+                                            }
+                                        }
+                                    } catch (e) {
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            // Reset timeout on each chunk
+                            clearTimeout(responseTimeout);
+                            responseTimeout = setTimeout(handleStreamTimeout, 5000);
+                        }
+                    } catch (streamError) {
+                        if (streamError.name === 'AbortError') {
+                            // Clean up the response on abort
+                            await reader.cancel();
+                            if (!responseText.trim()) {
+                                messageDiv.remove();
+                            }
+                            return;
+                        }
+                        throw streamError;
+                    }
+
+                    // Save the complete message if not interrupted
+                    if (!streamInterrupted && responseText) {
+                        this.chats[this.currentChatId].messages.push({
+                            type: 'ai',
+                            content: responseText
+                        });
+
+                        // Update chat title if it's the first message
+                        if (this.chats[this.currentChatId].messages.length === 2) {
+                            this.updateChatTitle(responseText);
+                        }
+                    }
+
                     return;
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        // Don't retry on manual cancellation
+                        return;
+                    }
+                    if (retryCount === maxRetries - 1) {
+                        throw error;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                    retryCount++;
                 }
-                if (retryCount === maxRetries - 1) {
-                    throw error;
-                }
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
-                retryCount++;
             }
+        } catch (error) {
+            isError = true;
+            console.error('AI Response Error:', error);
+            
+            // Add retry button UI
+            messageContent.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Failed to get response. Please try again.
+                    <button class="retry-btn">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+
+            // Add retry functionality
+            const retryBtn = messageContent.querySelector('.retry-btn');
+            retryBtn.onclick = async () => {
+                messageContent.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+                try {
+                    await this.getAIResponse(userMessage, chatHistory, lastResponse, messageDiv);
+                } catch (retryError) {
+                    console.error('Retry failed:', retryError);
+                }
+            };
+        }
+
+        // Only save non-error messages
+        if (!isError && responseText.trim()) {
+            this.chats[this.currentChatId].messages.push({
+                type: 'ai',
+                content: responseText
+            });
         }
     }
 
@@ -671,7 +833,12 @@ class ChatInterface {
         const messageContent = messageDiv.querySelector('.message-content');
         const wasAtBottom = this.isAtBottom();
         
-        // Check if content contains code blocks
+        // Only auto-scroll if user was at bottom
+        if (wasAtBottom) {
+            requestAnimationFrame(() => this.scrollToBottom());
+        }
+        
+        // Check for incomplete code blocks
         if (content.includes('```')) {
             // Split content into text and code blocks
             const parts = content.split(/(```[\s\S]*?(?:```|$))/g);
@@ -700,11 +867,6 @@ class ChatInterface {
         } else {
             messageContent.innerHTML = this.formatText(content);
         }
-        
-        // Only scroll if user was already at bottom
-        if (wasAtBottom) {
-            this.scrollToBottom();
-        }
     }
 
     isAtBottom() {
@@ -714,11 +876,13 @@ class ChatInterface {
     }
 
     scrollToBottom() {
-        const container = this.elements.chatContainer;
-        container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth'
-        });
+        if (!this.isGenerating) {
+            const container = this.elements.chatContainer;
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
     }
 
     // Helper method to create a code block for incomplete code that's still streaming
@@ -785,8 +949,10 @@ class ChatInterface {
         const actions = document.createElement('div');
         actions.className = 'code-actions';
         actions.innerHTML = `
-            ${['html', 'javascript', 'css'].includes(language) ? 
-                '<button class="preview-code-btn" title="Preview"><i class="fas fa-play"></i> Preview</button>' : ''}
+            ${['html', 'javascript', 'css'].includes(language) ? `
+                <button class="edit-code-btn" title="Edit code"><i class="fas fa-edit"></i> Edit</button>
+                <button class="preview-code-btn" title="Preview"><i class="fas fa-play"></i> Preview</button>
+            ` : ''}
             <button class="copy-btn" title="Copy code"><i class="fas fa-copy"></i> Copy</button>
         `;
         
@@ -795,13 +961,97 @@ class ChatInterface {
         
         const previewBtn = actions.querySelector('.preview-code-btn');
         if (previewBtn) {
-            previewBtn.onclick = () => this.previewCode(code, language);
+            // Store original code in data attribute
+            wrapper.dataset.originalCode = code;
+            wrapper.dataset.editedCode = code;
+            
+            previewBtn.onclick = () => this.previewCode(wrapper.dataset.editedCode || code, language);
+        }
+        
+        const editBtn = actions.querySelector('.edit-code-btn');
+        if (editBtn) {
+            editBtn.onclick = () => this.showCodeEditor(wrapper, code, language);
         }
         
         wrapper.appendChild(header);
         wrapper.appendChild(pre);
         wrapper.appendChild(actions);
         return wrapper;
+    }
+
+    showCodeEditor(codeBlock, code, language) {
+        const modal = document.createElement('div');
+        modal.className = 'code-editor-modal modal active';
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <i class="fas fa-edit"></i>
+                        <h3>Edit Code</h3>
+                    </div>
+                    <button class="close-modal" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="code-editor-container">
+                    <textarea class="code-editor" spellcheck="false">${code}</textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="reset-btn">Reset</button>
+                    <button class="save-btn">Save</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const textarea = modal.querySelector('.code-editor');
+        const closeBtn = modal.querySelector('.close-modal');
+        const saveBtn = modal.querySelector('.save-btn');
+        const resetBtn = modal.querySelector('.reset-btn');
+
+        // Auto-resize textarea
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+
+        // Handle save
+        saveBtn.onclick = () => {
+            const editedCode = textarea.value;
+            codeBlock.dataset.editedCode = editedCode;
+            codeBlock.querySelector('code').textContent = editedCode;
+            modal.remove();
+        };
+
+        // Handle reset
+        resetBtn.onclick = () => {
+            textarea.value = codeBlock.dataset.originalCode;
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        };
+
+        // Handle close
+        closeBtn.onclick = () => modal.remove();
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        // Add tab support
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                textarea.value = textarea.value.substring(0, start) + '    ' + textarea.value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + 4;
+            }
+        });
+
+        // Auto-resize on input
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        });
     }
 
     previewCode(code, language) {
@@ -861,112 +1111,60 @@ class ChatInterface {
         Object.values(this.chats).reverse().forEach(chat => {
             const chatItem = document.createElement('div');
             chatItem.className = `chat-item ${chat.id === this.currentChatId ? 'active' : ''}`;
+            chatItem.dataset.chatId = chat.id; // Add data attribute for touch handling
             chatItem.innerHTML = `
                 <i class="fas fa-message"></i>
                 <div class="chat-title" contenteditable="false">${chat.title}</div>
                 <span class="chat-date">${this.formatDate(chat.id)}</span>
                 <div class="chat-actions">
-                    <button class="rename-chat-btn" title="Rename chat">
-                        <i class="fas fa-pen"></i>
-                    </button>
-                    <button class="delete-chat-btn" title="Delete chat">
-                        <i class="fas fa-times"></i>
+                    <button class="more-options-btn">
+                        <i class="fas fa-ellipsis-v"></i>
                     </button>
                 </div>
             `;
 
             const titleElement = chatItem.querySelector('.chat-title');
+            const moreOptionsBtn = chatItem.querySelector('.more-options-btn');
 
-            // Handle inline editing
-            titleElement.addEventListener('blur', () => {
-                const newTitle = titleElement.textContent.trim();
-                if (newTitle && newTitle !== chat.title) {
-                    chat.title = newTitle;
-                    this.saveChats();
-                }
-                titleElement.contentEditable = "false";
-                chatItem.classList.remove('editing');
-            });
-
-            titleElement.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    titleElement.blur();
-                }
-                if (e.key === 'Escape') {
-                    titleElement.textContent = chat.title;
-                    titleElement.blur();
-                }
-            });
-
-            // Mobile context menu
-            let touchTimeout;
-            chatItem.addEventListener('touchstart', () => {
-                touchTimeout = setTimeout(() => {
-                    this.showContextMenu(chat, chatItem);
-                }, 500);
-            });
-
-            chatItem.addEventListener('touchend', () => {
-                clearTimeout(touchTimeout);
-            });
-
-            chatItem.addEventListener('touchmove', () => {
-                clearTimeout(touchTimeout);
-            });
-
-            // Click handlers
-            chatItem.querySelector('.rename-chat-btn').onclick = (e) => {
+            // Handle chat options menu
+            moreOptionsBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                titleElement.contentEditable = "true";
-                titleElement.focus();
-                chatItem.classList.add('editing');
-                // Select all text
-                const range = document.createRange();
-                range.selectNodeContents(titleElement);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-            };
+                this.showChatOptions(chat, chatItem, e);
+            });
 
-            chatItem.onclick = (e) => {
+            // Handle chat selection
+            chatItem.addEventListener('click', (e) => {
                 if (!chatItem.classList.contains('editing')) {
                     this.loadChat(chat.id);
                 }
-            };
-
-            chatItem.querySelector('.delete-chat-btn').onclick = (e) => {
-                e.stopPropagation();
-                this.deleteChat(chat.id);
-            };
+            });
 
             this.elements.chatList.appendChild(chatItem);
         });
     }
 
-    showContextMenu(chat, element) {
-        const existingMenu = document.querySelector('.context-menu');
+    showChatOptions(chat, element, event) {
+        // Remove any existing menus
+        const existingMenu = document.querySelector('.chat-options-menu');
         if (existingMenu) existingMenu.remove();
 
         const menu = document.createElement('div');
-        menu.className = 'context-menu';
+        menu.className = 'chat-options-menu';
         menu.innerHTML = `
-            <button class="context-menu-item rename">
-                <i class="fas fa-pen"></i> Rename
+            <button class="chat-option rename">
+                <i class="fas fa-pen"></i>
+                Rename
             </button>
-            <button class="context-menu-item delete">
-                <i class="fas fa-trash"></i> Delete
+            <button class="chat-option delete">
+                <i class="fas fa-trash"></i>
+                Delete
             </button>
         `;
 
-        // Position menu relative to chat item
-        menu.style.position = 'absolute';
-        menu.style.left = '0';
-        menu.style.right = '0';
-
-        // Append menu to the chat item itself for proper positioning
+        // Add menu to chat item
         element.appendChild(menu);
 
+        // Handle rename
         menu.querySelector('.rename').onclick = (e) => {
             e.stopPropagation();
             const titleElement = element.querySelector('.chat-title');
@@ -981,8 +1179,30 @@ class ChatInterface {
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(range);
+
+            // Save on enter
+            titleElement.addEventListener('keydown', function handleEnter(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                }
+            });
+
+            // Save on blur
+            titleElement.addEventListener('blur', () => {
+                const newTitle = titleElement.textContent.trim();
+                if (newTitle) {
+                    this.chats[chat.id].title = newTitle;
+                    this.saveChats();
+                } else {
+                    titleElement.textContent = chat.title; // Revert if empty
+                }
+                titleElement.contentEditable = "false";
+                element.classList.remove('editing');
+            });
         };
 
+        // Handle delete
         menu.querySelector('.delete').onclick = (e) => {
             e.stopPropagation();
             this.deleteChat(chat.id);
@@ -991,7 +1211,7 @@ class ChatInterface {
 
         // Close menu when clicking outside
         const closeMenu = (e) => {
-            if (!menu.contains(e.target) && !element.contains(e.target)) {
+            if (!menu.contains(e.target) && !element.querySelector('.chat-title').contains(e.target)) {
                 menu.remove();
                 document.removeEventListener('click', closeMenu);
             }
@@ -1000,25 +1220,26 @@ class ChatInterface {
         document.addEventListener('click', closeMenu);
     }
 
-    renameChat(chatId) {
-        const chat = this.chats[chatId];
-        const newTitle = prompt('Enter new chat title:', chat.title);
-        if (newTitle && newTitle.trim()) {
-            chat.title = newTitle.trim();
-            this.saveChats();
-            this.updateChatList();
-        }
-    }
-
     formatDate(timestamp) {
         const date = new Date(parseInt(timestamp));
-        return date.toLocaleString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return 'Yesterday';
+        } else {
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric'
+            });
+        }
     }
 
     loadChat(chatId) {
@@ -1178,8 +1399,9 @@ class ChatInterface {
         }
     }
 
-    toggleSettingsModal() {
-        this.elements.settingsModal.classList.toggle('active');
+    toggleSettingsModal(show) {
+        const newState = show ?? !this.elements.settingsModal.classList.contains('active');
+        this.elements.settingsModal.classList.toggle('active', newState);
     }
 
     loadChats() {
@@ -1250,10 +1472,18 @@ class ChatInterface {
     }
 
     handleThemeChange(theme) {
+        // Update both html and body elements
         document.documentElement.setAttribute('data-theme', theme);
+        this.elements.body.setAttribute('data-theme', theme);
+        
+        // Update toggle buttons
         document.querySelectorAll('.theme-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.theme === theme);
         });
+        
+        // Save theme preference
+        localStorage.setItem('theme', theme);
+        
         this.settings.theme = theme;
         this.saveSettings();
     }
