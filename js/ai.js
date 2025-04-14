@@ -5,7 +5,7 @@ class AIModelManager {
         this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
             deepseek: {
-                id: 'deepseek/deepseek-chat-v3-0324:free',
+                id: 'agentica-org/deepcoder-14b-preview:free',
                 context: this.getDeepseekContext(),
                 temperature: 0.3,
                 top_p: 0.95,
