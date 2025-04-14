@@ -1,11 +1,11 @@
 class AIModelManager {
     constructor() {
-        this.API_KEY = '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';
+        this.API_KEY = '056dbbc31138e5bd8e41286c983ee574368d43eb4681e879bffe4cd346cca946';
         this.API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
         this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
             deepseek: {
-                id: 'deepseek/deepseek-chat-v3-0324:free',
+                id: 'openai/gpt-4.1-nano',
                 context: this.getDeepseekContext(),
                 temperature: 0.3,
                 top_p: 0.95,
