@@ -1,11 +1,11 @@
 class AIModelManager {
     constructor() {
-        this.API_KEY = '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';
+        this.API_KEY = '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';
         this.API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
         this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
             deepseek: {
-                id: 'agentica-org/deepcoder-14b-preview:free',
+                id: 'google/gemini-2.0-flash-001',
                 context: this.getDeepseekContext(),
                 temperature: 0.3,
                 top_p: 0.95,
