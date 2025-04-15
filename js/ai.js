@@ -1,6 +1,6 @@
 class AIModelManager {
     constructor() {
-        this.API_KEY = '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';
+        this.API_KEY = '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';
         this.API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
         this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
