@@ -1,6 +1,6 @@
 class AIModelManager {
     constructor() {
-        this.API_KEY = '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';
+        this.API_KEY = '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';
         this.API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
         this.responseMode = localStorage.getItem('responseMode') || 'medium';
         this.models = {
@@ -64,7 +64,7 @@ Response Mode: ${mode === 'short' ? 'Focus on key actionable points only.' :
                 messages: updatedMessages,
                 temperature: model.temperature,
                 top_p: model.top_p,
-                max_tokens: 32768,
+                max_tokens: 163840,
                 presence_penalty: model.presence_penalty,
                 frequency_penalty: model.frequency_penalty,
                 stream: true,
